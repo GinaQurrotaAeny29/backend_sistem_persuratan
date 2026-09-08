@@ -57,26 +57,6 @@
 > | GET | `/api/disposisi/:id/riwayat` | Auth | Riwayat perubahan |
 > | GET | `/api/pegawai/penerima-disposisi` | Admin | Daftar pegawai aktif |
 >
-> ---
->
-> ### 🔌 Cara Menghubungkan ke Frontend
->
-> Di frontend, buka file `.env.local` (atau `.env`), ubah:
-> ```env
-> VITE_API_URL=http://localhost:3000/api
-> ```
->
-> Atau di `vite.config.ts`, sesuaikan proxy:
-> ```ts
-> proxy: {
->   '/api': {
->     target: 'http://localhost:3000',
->     changeOrigin: true,
->   }
-> }
-> ```
->
-> ---
 >
 > ### 📌 Fitur yang Sudah Selesai
 >
