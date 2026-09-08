@@ -114,6 +114,3 @@ Jika tim frontend minta file kontrak API, kasih tahu:
 | Pegawai | GET penerima disposisi | ✅ |
 | Database | Migrasi & seeder | ✅ |
 
----
-
-**Sekarang kirim pesan itu ke tim frontend.** 😊
