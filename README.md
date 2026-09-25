@@ -1,40 +1,180 @@
-```markdown
 # Backend Sistem Informasi Persuratan
 
-Backend API untuk aplikasi **Sistem Informasi Persuratan PT Metanouva Informatika**. Dibangun dengan Node.js + Express.js + MySQL, menggunakan Knex.js sebagai query builder dan JWT untuk autentikasi.
+Backend API untuk aplikasi **Sistem Informasi Persuratan PT Metanouva Informatika**. Dibangun dengan Node.js + Express.js + MySQL, menggunakan Knex.js sebagai query builder, JWT untuk autentikasi, dan Puppeteer untuk generasi PDF surat keluar.
 
-Dokumen ini menjelaskan cara instalasi, menjalankan, dan daftar endpoint yang tersedia.
+Proyek ini merupakan **studi kasus** kerja praktik — simulasi pengembangan sistem persuratan digital seperti yang biasa dikerjakan PT Metanouva Informatika untuk klien mereka.
 
 ---
 
 ## 📋 Daftar Isi
 
-- [Teknologi](#-teknologi)
-- [Prasyarat](#-prasyarat)
-- [Instalasi](#-instalasi)
-- [Menjalankan Server](#-menjalankan-server)
-- [Struktur Folder](#-struktur-folder)
-- [Akun Testing](#-akun-testing)
-- [Daftar Endpoint](#-daftar-endpoint)
-- [Dua Jenis Input Surat Keluar](#-dua-jenis-input-surat-keluar)
-- [Dokumentasi Hasil](#-dokumentasi-hasil)
-- [Kontrak API](#-kontrak-api)
-- [Catatan Pengembangan](#-catatan-pengembangan)
+1. [Teknologi](#-teknologi)
+2. [Fitur Utama](#-fitur-utama)
+3. [Arsitektur Sistem](#-arsitektur-sistem)
+4. [Struktur Folder](#-struktur-folder)
+5. [Skema Database](#-skema-database)
+6. [Prasyarat](#-prasyarat)
+7. [Instalasi](#-instalasi)
+8. [Menjalankan Server](#-menjalankan-server)
+9. [Akun Testing](#-akun-testing)
+10. [Daftar Endpoint](#-daftar-endpoint)
+11. [Aturan Bisnis](#-aturan-bisnis)
+12. [Fitur Unggulan](#-fitur-unggulan)
+13. [Deployment](#-deployment)
+14. [Catatan Pengembangan](#-catatan-pengembangan)
+15. [Kontak](#-kontak)
 
 ---
 
 ## 🛠 Teknologi
 
-| Komponen | Teknologi |
-|----------|-----------|
-| Runtime | Node.js v20+ |
-| Framework | Express.js |
-| Database | MySQL 8+ |
-| Query Builder | Knex.js |
-| Autentikasi | JWT (jsonwebtoken) |
-| Hashing Password | bcrypt |
-| Upload File | Multer |
-| Generate PDF | Puppeteer |
+| Komponen | Teknologi | Versi |
+|----------|-----------|-------|
+| Runtime | Node.js | v20+ |
+| Framework | Express.js | 5.x |
+| Database | MySQL / MariaDB | 8.x |
+| Query Builder | Knex.js | 3.x |
+| Autentikasi | JSON Web Token (JWT) | 9.x |
+| Hashing Password | bcrypt | 6.x |
+| Upload File | Multer | 2.x |
+| Generate PDF | Puppeteer | 25.x |
+| Validasi | Manual + Zod (opsional) | — |
+| Logging | Morgan | 1.x |
+| Security | Helmet, CORS | — |
+| Environment | dotenv | 17.x |
+
+---
+
+## ✨ Fitur Utama
+
+Sistem backend ini menyediakan **40+ endpoint API** yang terbagi dalam **11 modul**:
+
+1. **Autentikasi** — Login JWT, profil user, ganti password
+2. **Surat Masuk** — Registrasi, upload PDF, penomoran agenda otomatis, taut surat balasan
+3. **Surat Keluar** — Generate nomor otomatis, render PDF, dua jenis input (baru & lama)
+4. **Disposisi** — Buat disposisi, tandai dibaca, ubah status, riwayat perubahan
+5. **Notifikasi** — Notifikasi in-app untuk pegawai
+6. **Users** — CRUD akun login dengan role admin/pegawai
+7. **Pegawai** — CRUD data pegawai (terpisah dari users)
+8. **Bagian** — Master data bagian/departemen
+9. **Jenis Surat** — Master data jenis surat (44 jenis sesuai panduan)
+10. **Template** — Template surat + field dinamis
+11. **Penomoran** — Aturan penomoran + counter + riwayat perubahan
+
+---
+
+## 🏗 Arsitektur Sistem
+
+```
+┌─────────────────────┐         ┌──────────────────────┐         ┌─────────────────┐
+│     FRONTEND        │         │      BACKEND         │         │    DATABASE     │
+│  React.js + Vite    │────────▶│  Node.js + Express   │────────▶│  MySQL / MariaDB│
+│   (Vercel)          │◀────────│  (Lokal + Tunnel)    │◀────────│                 │
+└─────────────────────┘   HTTP  └──────────────────────┘   SQL   └─────────────────┘
+                                        │
+                                        │
+                                        ▼
+                                 ┌──────────────────────┐
+                                 │     PUPPETEER        │
+                                 │  (Generate PDF)      │
+                                 │  Chromium Headless   │
+                                 └──────────────────────┘
+```
+
+**Prinsip Arsitektur:**
+
+- **Stateless API** — Menggunakan JWT, tidak ada session di server
+- **RESTful** — Endpoint mengikuti konvensi REST
+- **Contract-First** — Kontrak API disepakati sebelum coding
+- **Separation of Concerns** — Controller, service, middleware terpisah
+
+---
+
+## 📁 Struktur Folder
+
+```
+backend_sistem_persuratan/
+├── src/
+│   ├── config/
+│   │   └── db.js                    # Koneksi MySQL via Knex
+│   ├── middlewares/
+│   │   ├── authenticate.js          # Verifikasi JWT
+│   │   ├── authorize.js             # Cek role (admin/pegawai)
+│   │   └── upload.js                # Upload file via Multer
+│   ├── modules/
+│   │   ├── auth/                    # Login, profil, ganti password
+│   │   ├── surat-masuk/             # CRUD surat masuk + upload
+│   │   ├── surat-keluar/            # CRUD surat keluar + PDF
+│   │   ├── disposisi/               # Alur disposisi
+│   │   ├── notifikasi/              # Notifikasi in-app
+│   │   ├── users/                   # Kelola akun login
+│   │   ├── pegawai/                 # Kelola data pegawai
+│   │   ├── bagian/                  # Master bagian
+│   │   ├── jenis-surat/             # Master jenis surat
+│   │   ├── template/                # Master template + field dinamis
+│   │   └── penomoran/               # Aturan penomoran
+│   ├── utils/
+│   │   ├── generateAgenda.js        # Nomor agenda surat masuk
+│   │   ├── generateNomorSurat.js    # Nomor surat keluar (FOR UPDATE)
+│   │   ├── renderPDF.js             # HTML → PDF (Puppeteer)
+│   │   └── romawi.js                # Konversi bulan ke Romawi
+│   ├── migrations/                  # File migrasi Knex
+│   ├── seeds/                       # File seeder Knex
+│   ├── scripts/                     # Script bantu (debug, perbaikan)
+│   ├── app.js                       # Konfigurasi Express + middleware
+│   └── server.js                    # Entry point server
+├── storage/                         # File upload & PDF (git-ignored)
+│   ├── public/
+│   │   └── logo.png                 # Logo perusahaan
+│   ├── surat-masuk/                 # File PDF surat masuk
+│   └── surat-keluar/                # File PDF surat keluar
+├── .env                             # Environment variables (git-ignored)
+├── .env.example                     # Template environment
+├── .gitignore
+├── knexfile.js                      # Konfigurasi Knex
+├── puppeteer.config.cjs             # Konfigurasi Puppeteer
+├── package.json
+└── README.md
+```
+
+---
+
+## 🗄 Skema Database
+
+Database terdiri dari **14 tabel** yang saling terhubung:
+
+### Tabel Master
+
+| Tabel | Deskripsi |
+|-------|-----------|
+| `users` | Akun login (username, password_hash, role, status) |
+| `pegawai` | Data pegawai (terpisah dari users) |
+| `bagian` | Master bagian/departemen (FIN, DIR, HR, ADM, MKT, ENG) |
+| `jenis_surat` | Master jenis surat (44 jenis sesuai panduan) |
+| `template_surat` | Template surat dengan konten HTML |
+| `template_field` | Field dinamis untuk setiap template |
+| `app_setting` | Pengaturan aplikasi (key-value) |
+
+### Tabel Transaksi
+
+| Tabel | Deskripsi |
+|-------|-----------|
+| `surat_masuk` | Data surat masuk + file + nomor agenda |
+| `surat_keluar` | Data surat keluar + nomor + PDF |
+| `disposisi` | Disposisi surat dari admin ke pegawai |
+| `riwayat_disposisi` | Audit log perubahan status disposisi |
+| `notifikasi` | Notifikasi in-app |
+| `counter` | Counter penomoran (per tahun) |
+| `riwayat_penomoran` | Riwayat perubahan aturan penomoran |
+
+### Relasi Kunci
+
+- `surat_masuk.dibuat_oleh` → `users.id`
+- `disposisi.surat_masuk_id` → `surat_masuk.id`
+- `disposisi.dari_pegawai_id` → `pegawai.id`
+- `disposisi.kepada_pegawai_id` → `pegawai.id`
+- `surat_keluar.membalas_surat_masuk_id` → `surat_masuk.id`
+- `pegawai.user_id` → `users.id` (opsional, K-11)
 
 ---
 
@@ -42,14 +182,19 @@ Dokumen ini menjelaskan cara instalasi, menjalankan, dan daftar endpoint yang te
 
 Pastikan sudah terinstall di komputer:
 
-- **Node.js** v20 atau lebih baru ([download](https://nodejs.org))
-- **MySQL** (via XAMPP/Laragon/MySQL Community Server)
-- **Git** untuk clone repository
+- **Node.js** v20 atau lebih baru — [download](https://nodejs.org)
+- **MySQL** (via XAMPP / Laragon / MySQL Community Server)
+- **Git** untuk version control
 - **VS Code** (disarankan)
 
 Cek versi Node.js:
 ```bash
 node -v
+```
+
+Cek versi npm:
+```bash
+npm -v
 ```
 
 ---
@@ -69,11 +214,11 @@ cd backend_sistem_persuratan
 npm install
 ```
 
-Proses ini akan mengunduh semua library, termasuk Chromium untuk Puppeteer (bisa 2–5 menit).
+Proses ini akan mengunduh semua library, termasuk **Chromium untuk Puppeteer** (bisa 2–5 menit tergantung koneksi).
 
 ### 3. Buat File `.env`
 
-Copy dari `.env.example`, lalu sesuaikan:
+Copy dari `.env.example`:
 
 ```bash
 cp .env.example .env
@@ -82,37 +227,67 @@ cp .env.example .env
 Isi `.env`:
 
 ```env
+# Server
 PORT=3000
-DB_HOST=localhost
+NODE_ENV=development
+
+# Database
+DB_HOST=127.0.0.1
+DB_PORT=3306
 DB_USER=root
 DB_PASS=
 DB_NAME=si_persuratan
+DB_SSL=false
+
+# JWT
 JWT_SECRET=rahasia_backend_2026
 JWT_EXPIRES=8h
 ```
 
-> **Catatan:** Jika MySQL kamu punya password, isi `DB_PASS` sesuai.
+> **Catatan:** 
+> - Jika MySQL kamu punya password, isi `DB_PASS` sesuai.
+> - Kalau pakai database cloud (TiDB Cloud), set `DB_SSL=true` dan `DB_PORT=4000`.
 
 ### 4. Buat Database di MySQL
 
-Buka phpMyAdmin (`http://localhost/phpmyadmin`) atau terminal MySQL:
+Buka **phpMyAdmin** (`http://localhost/phpmyadmin`) atau terminal MySQL:
 
 ```sql
 CREATE DATABASE si_persuratan CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-### 5. Jalankan Migrasi & Seeder
+### 5. Jalankan Migrasi
 
 ```bash
 npx knex migrate:latest
+```
+
+Perintah ini akan membuat **14 tabel** di database.
+
+### 6. Isi Data Awal (Seeder)
+
+```bash
 npx knex seed:run
 ```
 
-Perintah ini akan membuat semua tabel dan mengisi data awal (admin, pegawai, bagian, jenis surat, pengaturan penomoran).
+Data awal yang akan dibuat:
+- **Admin**: `rina.marlina` / `admin123`
+- **Pegawai**: `budi.santoso` / `pegawai123`
+- **Bagian**: FIN, DIR, HR, ADM, MKT, ENG
+- **Jenis Surat**: 44 jenis sesuai panduan
+- **Template**: 44 template + field dinamis
+- **Pengaturan**: Format nomor, kode perusahaan, dll.
 
----
+### 7. Siapkan Logo Perusahaan
 
-## ▶️ Menjalankan Server
+Letakkan file logo di:
+```
+storage/public/logo.png
+```
+
+Logo ini akan otomatis muncul di kop surat PDF.
+
+### 8. Jalankan Server
 
 ```bash
 npm run dev
@@ -120,55 +295,29 @@ npm run dev
 
 Server akan berjalan di: **`http://localhost:3000`**
 
-Cek kesehatan server:
-```
-GET http://localhost:3000/health
-```
-
-Response: `{ "success": true, "message": "Server sehat" }`
-
 ---
 
-## 📁 Struktur Folder
+## ▶️ Menjalankan Server
 
+### Mode Development (dengan auto-reload)
+
+```bash
+npm run dev
 ```
-backend-si-persuratan/
-├── src/
-│   ├── config/
-│   │   └── db.js                    # Koneksi ke MySQL via Knex
-│   ├── middlewares/
-│   │   ├── authenticate.js          # Verifikasi token JWT
-│   │   ├── authorize.js             # Cek role (admin/pegawai)
-│   │   └── upload.js                # Upload file via Multer
-│   ├── modules/
-│   │   ├── auth/                    # Login, profil, ganti password
-│   │   ├── surat-masuk/             # CRUD surat masuk + upload
-│   │   ├── disposisi/               # Buat, baca, ubah status disposisi
-│   │   ├── notifikasi/              # Notifikasi in-app
-│   │   ├── users/                   # Kelola akun pengguna
-│   │   ├── pegawai/                 # Kelola data pegawai
-│   │   ├── bagian/                  # Master bagian
-│   │   ├── jenis-surat/             # Master jenis surat
-│   │   ├── template/                # Master template + field dinamis
-│   │   ├── penomoran/               # Aturan penomoran surat keluar
-│   │   └── surat-keluar/            # Buat surat keluar + generate PDF
-│   ├── utils/
-│   │   ├── generateAgenda.js        # Generate nomor agenda surat masuk
-│   │   ├── generateNomorSurat.js    # Generate nomor surat keluar (FOR UPDATE)
-│   │   ├── renderPDF.js             # Render HTML → PDF (Puppeteer)
-│   │   └── romawi.js                # Konversi bulan ke angka Romawi
-│   ├── migrations/                  # File migrasi Knex
-│   ├── seeds/                       # File seeder Knex
-│   ├── app.js                       # Konfigurasi Express + middleware
-│   └── server.js                    # Entry point server
-├── storage/                         # File upload (di-ignore dari Git)
-├── docs/                            # Dokumentasi hasil (PDF, screenshot)
-├── knexfile.js
-├── .env                             # Variabel lingkungan (di-ignore)
-├── .env.example                     # Template variabel lingkungan
-├── .gitignore
-├── package.json
-└── README.md
+
+### Mode Production
+
+```bash
+npm start
+```
+
+### Cek Kesehatan Server
+
+Buka browser: `http://localhost:3000/health`
+
+**Response:**
+```json
+{ "success": true, "message": "Server sehat" }
 ```
 
 ---
@@ -179,10 +328,10 @@ Data ini otomatis terisi setelah menjalankan seeder.
 
 | Role | Username | Password | Nama |
 |------|----------|----------|------|
-| Admin | `rina.marlina` | `admin123` | Rina Marlina |
-| Pegawai | `budi.santoso` | `pegawai123` | Budi Santoso |
+| **Admin** | `rina.marlina` | `admin123` | Rina Marlina |
+| **Pegawai** | `budi.santoso` | `pegawai123` | Budi Santoso |
 
-> **Catatan:** Password di-hash dengan bcrypt (cost 10).
+> **Catatan:** Password di-hash dengan **bcrypt** (cost 10). Tidak pernah muncul di response API.
 
 ---
 
@@ -208,22 +357,29 @@ Authorization: Bearer <token>
 
 | Method | Endpoint | Akses | Keterangan |
 |--------|----------|-------|------------|
-| GET | `/surat-masuk` | Auth | Daftar surat masuk |
+| GET | `/surat-masuk` | Auth | Daftar surat masuk + filter |
 | POST | `/surat-masuk` | Admin | Tambah surat (multipart, field `file`) |
 | GET | `/surat-masuk/:id` | Auth | Detail surat + disposisi + balasan |
 | GET | `/surat-masuk/:id/file` | Auth | Unduh berkas PDF |
 | PATCH | `/surat-masuk/:id/surat-balasan` | Admin | Tautkan surat keluar sebagai balasan |
 | DELETE | `/surat-masuk/:id/surat-balasan` | Admin | Hapus tautan balasan |
 
+**Query parameter untuk `GET /surat-masuk`:**
+- `q` — Cari di nomor_surat, perihal, pengirim
+- `status` — Filter: `belum_dibaca`, `diproses`, `selesai`, `belum_didisposisi`
+- `tanggal_dari`, `tanggal_sampai` — Filter rentang tanggal
+- `page`, `limit` — Pagination
+
 ### 📤 Disposisi
 
 | Method | Endpoint | Akses | Keterangan |
 |--------|----------|-------|------------|
 | POST | `/surat-masuk/:id/disposisi` | Admin | Buat disposisi baru |
+| GET | `/disposisi` | Admin | Daftar semua disposisi |
 | GET | `/disposisi/saya` | Pegawai | Disposisi untuk pegawai yang login |
 | GET | `/disposisi/:id` | Auth | Detail disposisi |
 | PATCH | `/disposisi/:id/baca` | Pegawai | Tandai sudah dibaca (idempotent) |
-| PATCH | `/disposisi/:id/status` | Pegawai | Ubah status (`diproses`/`selesai`) |
+| PATCH | `/disposisi/:id/status` | Pegawai | Ubah status |
 | GET | `/disposisi/:id/riwayat` | Auth | Riwayat perubahan status |
 
 ### 🔔 Notifikasi
@@ -233,14 +389,15 @@ Authorization: Bearer <token>
 | GET | `/notifikasi` | Auth | Daftar notifikasi + hitungan belum dibaca |
 | PATCH | `/notifikasi/baca-semua` | Auth | Tandai semua sudah dibaca |
 
-### 👥 Users (Akun Login)
+### 👥 Users
 
 | Method | Endpoint | Akses | Keterangan |
 |--------|----------|-------|------------|
 | GET | `/users` | Admin | Daftar user (filter `?role=&q=`) |
 | GET | `/users/:id` | Admin | Detail user |
-| POST | `/users` | Admin | Tambah user (body `password_awal`) |
-| PUT | `/users/:id` | Admin | Ubah user (password kosong = tidak diubah) |
+| GET | `/users/tersedia` | Admin | Akun yang belum dipakai pegawai |
+| POST | `/users` | Admin | Tambah user baru |
+| PUT | `/users/:id` | Admin | Ubah user |
 | PATCH | `/users/:id/status` | Admin | Aktif/nonaktifkan user |
 
 ### 🧑‍💼 Pegawai
@@ -249,381 +406,187 @@ Authorization: Bearer <token>
 |--------|----------|-------|------------|
 | GET | `/pegawai` | Admin | Daftar pegawai |
 | GET | `/pegawai/:id` | Admin | Detail pegawai |
-| POST | `/pegawai` | Admin | Tambah pegawai (`user_id` opsional) |
+| GET | `/pegawai/penerima-disposisi` | Admin | Dropdown penerima disposisi |
+| POST | `/pegawai` | Admin | Tambah pegawai |
 | PUT | `/pegawai/:id` | Admin | Ubah pegawai |
 | PATCH | `/pegawai/:id/status` | Admin | Aktif/nonaktifkan pegawai |
-| GET | `/pegawai/penerima-disposisi` | Admin | Dropdown pegawai penerima disposisi |
 
 ### 🏢 Master Data
 
 | Method | Endpoint | Akses | Keterangan |
 |--------|----------|-------|------------|
 | GET/POST | `/master/bagian` | Admin | Master bagian |
-| GET/PUT/PATCH | `/master/bagian/:id` | Admin | Detail/ubah/status bagian |
+| GET/PUT/PATCH | `/master/bagian/:id` | Admin | Detail/ubah/status |
 | GET/POST | `/master/jenis-surat` | Admin | Master jenis surat |
-| GET/PUT/PATCH | `/master/jenis-surat/:id` | Admin | Detail/ubah/status jenis surat |
-| GET/POST | `/master/template` | Admin | Master template surat |
-| GET/PUT/PATCH | `/master/template/:id` | Admin | Detail/ubah/status template |
-| GET/POST | `/master/template/:id/fields` | Admin | Field dinamis template |
+| GET/PUT/PATCH | `/master/jenis-surat/:id` | Admin | Detail/ubah/status |
+| GET/POST | `/master/template` | Admin | Master template |
+| GET/PUT/PATCH | `/master/template/:id` | Admin | Detail/ubah/status |
+| GET/POST | `/master/template/:id/fields` | Admin | Field dinamis |
 | PUT/DELETE | `/master/template/:id/fields/:fieldId` | Admin | Ubah/hapus field |
-| GET/PUT | `/master/penomoran` | Admin | Aturan penomoran surat keluar |
+| GET/PUT | `/master/penomoran` | Admin | Aturan penomoran |
 
 ### 📨 Surat Keluar
 
 | Method | Endpoint | Akses | Keterangan |
 |--------|----------|-------|------------|
-| GET | `/surat-keluar` | Admin | Daftar surat keluar (filter `?jenis_input=`) |
+| GET | `/surat-keluar` | Admin | Daftar surat keluar |
 | POST | `/surat-keluar` | Admin | Buat surat (generate nomor + PDF) |
-| GET | `/surat-keluar/:id` | Admin | Detail surat + disposisi terkait |
+| GET | `/surat-keluar/:id` | Admin | Detail surat keluar |
 | GET | `/surat-keluar/:id/file` | Admin | Unduh PDF surat keluar |
 | GET | `/surat-keluar/tersedia` | Admin | Surat keluar yang belum jadi balasan |
 
 ---
 
-## ✨ Dua Jenis Input Surat Keluar
+## 📖 Aturan Bisnis
 
-Sesuai arahan pembimbing, endpoint `POST /api/surat-keluar` mendukung **dua jenis input**:
+Sistem ini mengikuti **14 aturan bisnis** yang wajib dijamin server:
 
-### 1. Surat Baru (`jenis_input: "baru"`)
-
-- Nomor surat **di-generate otomatis** oleh sistem.
-- Counter **bertambah** setiap kali surat dibuat.
-- Format: `{urut}/{bagian}.{kode}/{perusahaan}/{bulan_romawi}/{tahun}`.
-- Contoh: `006/FIN.03/Digitak/IX/2026`.
-
-**Request:**
-```json
-{
-  "jenis_input": "baru",
-  "template_id": 3,
-  "tanggal_surat": "2026-09-15",
-  "kepada": "PT ABC",
-  "perihal": "Surat Baru Test",
-  "data_dinamis": { "kepada": "PT ABC" }
-}
-```
-
-### 2. Surat Lama (`jenis_input: "lama"`)
-
-- Nomor surat **diisi manual** oleh admin.
-- Counter **TIDAK bertambah** (untuk input data historis).
-- Berguna saat migrasi data lama dari Excel.
-- Contoh: `145/MI/DIR.01/III/2024`.
-
-**Request:**
-```json
-{
-  "jenis_input": "lama",
-  "nomor_surat_manual": "145/MI/DIR.01/III/2024",
-  "template_id": 3,
-  "tanggal_surat": "2024-03-15",
-  "kepada": "PT XYZ",
-  "perihal": "Surat Lama Historis",
-  "data_dinamis": { "kepada": "PT XYZ" }
-}
-```
-
-### Perbandingan
-
-| Aspek | Surat Baru | Surat Lama |
-|-------|-----------|-----------|
-| `jenis_input` | `"baru"` | `"lama"` |
-| Nomor | Otomatis dari counter | Manual dari `nomor_surat_manual` |
-| Counter | Bertambah | Tidak bertambah |
-| `nomor_urut` | Terisi (integer) | `null` |
-| Duplikasi nomor | Dijamin unik oleh counter | Dicek 409 jika sudah ada |
-
-### Detail Surat Keluar + Disposisi
-
-Endpoint `GET /api/surat-keluar/:id` mengembalikan field `disposisi[]` yang berisi daftar disposisi dari **surat masuk yang dibalas** (jika surat keluar ini adalah balasan). Frontend bisa menampilkan section "Disposisi Terkait" di halaman detail surat keluar, dengan tombol route ke halaman detail disposisi.
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "nomor_surat": "001/FIN.03/Digitak/IX/2026",
-    "membalas_surat_masuk": {
-      "id": 4,
-      "nomor_agenda": "0001/2026",
-      "perihal": "Undangan Rapat Koordinasi"
-    },
-    "disposisi": [
-      {
-        "id": 1,
-        "instruksi": "Mohon disiapkan surat balasan",
-        "batas_waktu": "2026-09-20",
-        "status": "selesai",
-        "terlambat": false,
-        "pemberi": { "id": 1, "nama": "Rina Marlina" },
-        "penerima": { "id": 2, "nama": "Budi Santoso" }
-      }
-    ]
-  }
-}
-```
+| Kode | Aturan |
+|------|--------|
+| **B-1** | Nomor agenda surat masuk di-generate dalam transaksi terkunci, counter per tahun |
+| **B-2** | Nomor surat keluar di-generate dengan `SELECT ... FOR UPDATE` pada counter tahun berjalan |
+| **B-3** | `PATCH /disposisi/:id/baca` idempotent — panggilan kedua tidak mengubah apa-apa, tetap 200 |
+| **B-4** | `GET` tidak pernah mengubah data |
+| **B-5** | Transisi status hanya maju: `belum_dibaca` → `diproses` → `selesai` |
+| **B-6** | Setiap perubahan status disposisi menulis baris `riwayat_disposisi` |
+| **B-7** | Status `terlambat` dihitung saat query, bukan disimpan sebagai kolom |
+| **B-8** | Pegawai hanya boleh baca disposisi & berkas miliknya |
+| **B-9** | Satu surat keluar hanya untuk satu surat masuk (409 jika dilanggar) |
+| **B-10** | Nonaktifkan user/pegawai/bagian = ubah status, bukan `DELETE` |
+| **B-11** | Penerima disposisi = pegawai dengan akun user aktif |
+| **B-12** | Bulan Romawi & tahun diambil dari `tanggal_surat` |
+| **B-13** | Validasi file dilakukan ulang di server (PDF, max 10 MB) |
+| **B-14** | Timestamp dengan zona WIB (+07:00) |
 
 ---
 
-## 🎬 Dokumentasi Hasil
+## 🎯 Fitur Unggulan
 
-### 1. Contoh Surat Keluar (PDF)
+### 1. Penomoran Otomatis dengan Transaksi Terkunci
 
-Berikut adalah contoh hasil generate PDF dari endpoint `POST /api/surat-keluar` menggunakan template "Surat Undangan Rapat":
-
-![Contoh Surat Keluar](docs/contoh-surat-keluar.png)
-
-📄 **[Download contoh PDF lengkap](docs/contoh-surat-keluar.pdf)**
-
-**Endpoint yang dipakai:**
-```http
-POST /api/surat-keluar
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "jenis_input": "baru",
-  "template_id": 3,
-  "tanggal_surat": "2026-09-14",
-  "kepada": "PT Fiber Media Indonesia",
-  "perihal": "Undangan Rapat Koordinasi",
-  "pic": "Riski",
-  "data_dinamis": {
-    "kepada": "PT Fiber Media Indonesia",
-    "tanggal": "2026-09-20",
-    "agenda": "Pembahasan Proyek Q4"
-  }
-}
+**Format nomor surat keluar:**
+```
+001/FIN.03/Digitak/IX/2026
+ │    │     │      │   │
+ │    │     │      │   └─ Tahun
+ │    │     │      └───── Bulan Romawi
+ │    │     └──────────── Kode Perusahaan
+ │    └────────────────── Bagian.Kode Jenis
+ └─────────────────────── Nomor Urut
 ```
 
-**Hasil:**
-- Nomor surat otomatis: `001/FIN.03/Digitak/IX/2026`
-- PDF: lihat file di `docs/contoh-surat-keluar.pdf`
-- File tersimpan di server: `storage/surat-keluar/`
+**Keunggulan:**
+- ✅ Counter **global per tahun** — reset tiap tahun baru
+- ✅ Menggunakan **transaksi terkunci** (`SELECT ... FOR UPDATE`)
+- ✅ **Anti-duplikasi** — aman meski 50 request bersamaan
+- ✅ Bulan Romawi dari **tanggal surat**, bukan tanggal hari ini
+
+### 2. Generate PDF Otomatis
+
+**Alur:**
+```
+Template HTML + Data User → Puppeteer (Chromium) → PDF
+```
+
+**Fitur:**
+- ✅ Template HTML dengan **inline style** (konsisten di preview & PDF)
+- ✅ **Field dinamis** — placeholder `{nama}`, `{tanggal}`, `{perihal}`
+- ✅ Kop surat + logo perusahaan
+- ✅ Format A4, siap cetak
+- ✅ Browser di-cache — render kedua lebih cepat
+
+### 3. Dua Jenis Surat Keluar
+
+| Jenis | Nomor | Counter |
+|-------|-------|---------|
+| **Surat Baru** (`jenis_input: "baru"`) | Otomatis dari sistem | ✅ Bertambah |
+| **Surat Lama** (`jenis_input: "lama"`) | Manual dari `nomor_surat_manual` | ❌ Tidak bertambah |
+
+**Manfaat:** Fleksibel untuk migrasi data historis dari Excel.
+
+### 4. Disposisi & Notifikasi
+
+**Alur:**
+```
+Admin buat disposisi → Pegawai dapat notifikasi in-app
+   → Tandai dibaca → Proses → Selesai
+```
+
+**Fitur:**
+- ✅ Satu disposisi = satu penerima (K-2)
+- ✅ Status: `belum_dibaca` → `diproses` → `selesai`
+- ✅ Status "terlambat" dihitung otomatis
+- ✅ **Audit trail** setiap perubahan status
+- ✅ Notifikasi in-app untuk penerima
+
+### 5. Autentikasi JWT (Stateless)
+
+**Keunggulan:**
+- ✅ Token-based, tidak ada session di server
+- ✅ Server bisa restart tanpa user logout (selama token belum expired)
+- ✅ Payload minimal: `{ id, role, pegawai_id }`
+- ✅ Expiry 8 jam (configurable)
 
 ---
 
-### 2. Contoh Response API
+## 🚢 Deployment
 
-#### A. Login Berhasil
+### Strategi Deployment
 
-```http
-POST /api/auth/login
-Content-Type: application/json
+Sistem ini masih menggunakan hosting lokal sebagai berikut: 
 
-{
-  "username": "rina.marlina",
-  "password": "admin123"
-}
-```
+| Komponen | Platform | Sifat |
+|----------|----------|-------|
+| **Frontend** | Local | Deploy cloud, HTTPS otomatis |
+| **Backend** | Lokal + Cloudflare Tunnel | Akses publik tanpa cloud server |
+| **Database** | MySQL lokal / TiDB Cloud | Untuk demo & produksi |
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "user": {
-      "id": 1,
-      "nama": "Rina Marlina",
-      "username": "rina.marlina",
-      "role": "admin",
-      "jabatan": "Kepala Administrasi",
-      "bagian": { "id": 1, "kode": "FIN", "nama": "Keuangan" },
-      "status": "aktif"
-    }
-  }
-}
-```
+### Kenapa Backend Tidak di Cloud Gratis?
 
-#### B. Daftar Surat Masuk
+Fitur **generate PDF dengan Puppeteer** membutuhkan **RAM ≥ 1 GB** (untuk Chromium). Platform hosting gratis umumnya membatasi:
+- **Render.com**: 512 MB + wajib kartu kredit
+- **Koyeb**: sudah tutup untuk akun baru
+- **Railway**: tidak ada free tier murni
 
-```http
-GET /api/surat-masuk
-Authorization: Bearer <token>
-```
+**Solusi yang digunakan:** Backend dijalankan **lokal** dan diekspos ke internet menggunakan **Cloudflare Tunnel** (gratis, tanpa kartu kredit).
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "nomor_agenda": "0001/2026",
-      "nomor_surat": "005/ITG/A.5/B/IX/2026",
-      "tanggal_surat": "2026-09-14",
-      "perihal": "Undangan Rapat Koordinasi",
-      "pengirim": "Dinas Pendidikan",
-      "pic": "Ahmad Abdullah",
-      "file_name": "dummy-surat.pdf"
-    }
-  ],
-  "meta": { "page": 1, "limit": 10, "total": 1, "total_page": 1 }
-}
-```
+### Cara Deploy Backend (Cloudflare Tunnel)
 
-#### C. Buat Disposisi
+1. **Download `cloudflared.exe`** dari [GitHub Cloudflare](https://github.com/cloudflare/cloudflared/releases/latest).
 
-```http
-POST /api/surat-masuk/1/disposisi
-Authorization: Bearer <token>
-Content-Type: application/json
+2. **Jalankan backend:**
+   ```bash
+   npm run dev
+   ```
 
-{
-  "pegawai_id": 2,
-  "instruksi": "Mohon disiapkan surat balasan",
-  "batas_waktu": "2026-09-20"
-}
-```
+3. **Buka terminal baru, jalankan tunnel:**
+   ```bash
+   cloudflared.exe tunnel --url http://localhost:3000
+   ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Disposisi berhasil dibuat",
-  "data": {
-    "id": 1,
-    "surat_masuk_id": 1,
-    "dari_pegawai_id": 1,
-    "kepada_pegawai_id": 2,
-    "instruksi": "Mohon disiapkan surat balasan",
-    "batas_waktu": "2026-09-20",
-    "status": "belum_dibaca"
-  }
-}
-```
+4. **Catat URL publik** yang muncul, contoh:
+   ```
+   https://abc-xyz-123.trycloudflare.com
+   ```
 
-#### D. Generate Surat Keluar (Surat Baru)
+5. **Kirim URL ke tim frontend** untuk di-set di `VITE_API_URL`.
 
-```http
-POST /api/surat-keluar
-Authorization: Bearer <token>
-Content-Type: application/json
-```
+### Cara Deploy Frontend (Vercel)
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Surat keluar berhasil dibuat",
-  "data": {
-    "id": 1,
-    "jenis_input": "baru",
-    "nomor_urut": 1,
-    "nomor_surat": "001/FIN.03/Digitak/IX/2026",
-    "tahun": 2026,
-    "tanggal_surat": "2026-09-14",
-    "kepada": "PT Fiber Media Indonesia",
-    "perihal": "Undangan Rapat Koordinasi",
-    "pic": "Riski",
-    "data_dinamis": {
-      "kepada": "PT Fiber Media Indonesia",
-      "tanggal": "2026-09-20",
-      "agenda": "Pembahasan Proyek Q4"
-    }
-  }
-}
-```
+1. **Buka Vercel**, import repo frontend.
+2. **Set environment variable:**
+   ```
+   VITE_API_URL=https://abc-xyz-123.trycloudflare.com/api
+   ```
+3. **Redeploy** frontend.
 
-#### E. Simpan Surat Lama
+### Untuk Produksi Jangka Panjang
 
-```http
-POST /api/surat-keluar
-Authorization: Bearer <token>
-Content-Type: application/json
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Surat lama berhasil disimpan",
-  "data": {
-    "id": 7,
-    "jenis_input": "lama",
-    "nomor_urut": null,
-    "nomor_surat": "145/MI/DIR.01/III/2024",
-    "nomor_surat_manual": "145/MI/DIR.01/III/2024",
-    "tahun": 2024,
-    "tanggal_surat": "2024-03-15",
-    "kepada": "PT XYZ",
-    "perihal": "Surat Lama Historis"
-  }
-}
-```
-
----
-
-### 3. Contoh Format Penomoran
-
-| Jenis | Contoh | Keterangan |
-|-------|--------|------------|
-| **Nomor Agenda Surat Masuk** | `0001/2026` | Format `NNNN/TAHUN`, counter per tahun |
-| **Nomor Surat Keluar** | `001/FIN.03/Digitak/IX/2026` | Format `{urut}/{bagian}.{kode}/{perusahaan}/{bulan_romawi}/{tahun}` |
-| **Bulan Romawi** | `I` s.d. `XII` | Diambil dari `tanggal_surat`, bukan tanggal hari ini |
-
-**Aturan:**
-- Counter global per tahun — semua bagian berbagi satu urutan.
-- Nomor hanya diambil saat disimpan, bukan saat pratinjau.
-- Transaksi terkunci (`SELECT ... FOR UPDATE`) untuk mencegah duplikasi.
-- Surat lama tidak mempengaruhi counter.
-
----
-
-### 4. Contoh Alur Lengkap
-
-```
-1. Admin login                     → POST /api/auth/login
-2. Admin upload surat masuk        → POST /api/surat-masuk
-3. Admin buat disposisi            → POST /api/surat-masuk/:id/disposisi
-4. Pegawai lihat disposisi         → GET /api/disposisi/saya
-5. Pegawai tandai dibaca           → PATCH /api/disposisi/:id/baca
-6. Pegawai ubah status ke proses   → PATCH /api/disposisi/:id/status
-7. Admin buat surat balasan        → POST /api/surat-keluar (jenis_input: baru)
-8. Admin tautkan balasan           → PATCH /api/surat-masuk/:id/surat-balasan
-9. Admin download PDF              → GET /api/surat-keluar/:id/file
-```
-
----
-
-## 📖 Kontrak API
-
-Semua endpoint mengikuti **Kontrak API v1.1** yang disepakati bersama tim frontend.
-
-**Format response sukses:**
-```json
-{
-  "success": true,
-  "message": "Berhasil",
-  "data": { ... },
-  "meta": { "page": 1, "limit": 10, "total": 134, "total_page": 14 }
-}
-```
-
-**Format response gagal:**
-```json
-{
-  "success": false,
-  "message": "Validasi gagal",
-  "errors": [
-    { "field": "nomor_surat", "message": "Nomor surat wajib diisi" }
-  ]
-}
-```
-
-**Kode status HTTP:**
-| Kode | Arti |
-|------|------|
-| 200 | Sukses |
-| 201 | Resource dibuat |
-| 400 / 422 | Validasi gagal |
-| 401 | Token tidak ada / expired |
-| 403 | Role tidak berhak |
-| 404 | Tidak ditemukan |
-| 409 | Konflik (duplikat, nomor ganda, balasan ganda) |
-| 413 | File melebihi 10 MB |
-| 500 | Error server |
+Deploy backend ke **Oracle Cloud Free Tier**:
+- **2 OCPU, 12 GB RAM, 200 GB storage**
+- **Gratis selamanya** (butuh kartu kredit untuk verifikasi)
+- RAM cukup untuk Puppeteer
+- Setup dengan Nginx + PM2
 
 ---
 
@@ -631,7 +594,7 @@ Semua endpoint mengikuti **Kontrak API v1.1** yang disepakati bersama tim fronte
 
 ### Menjalankan Seeder Tertentu
 
-Jangan jalankan `npx knex seed:run` jika tidak ingin menghapus semua data. Gunakan `--specific`:
+Jangan jalankan `npx knex seed:run` (semua) jika tidak ingin menghapus data. Gunakan `--specific`:
 
 ```bash
 npx knex seed:run --specific=02_app_setting_default.js
@@ -646,6 +609,8 @@ npx knex migrate:rollback --all
 npx knex migrate:latest
 npx knex seed:run
 ```
+
+> ⚠️ **PERINGATAN:** Perintah ini akan **menghapus semua data**.
 
 ### Upload File PDF (Testing)
 
@@ -669,57 +634,77 @@ curl.exe -X GET http://localhost:3000/api/surat-keluar/1/file ^
   --output hasil.pdf
 ```
 
-### Penomoran Otomatis
-
-- **Surat masuk:** nomor agenda otomatis dengan format `NNNN/TAHUN` (contoh: `0001/2026`).
-- **Surat keluar:** nomor otomatis dengan pola `{urut}/{bagian}.{kode}/{perusahaan}/{bulan_romawi}/{tahun}` (contoh: `001/FIN.03/Digitak/IX/2026`).
-- Counter di-key per tahun, menggunakan transaksi terkunci (`SELECT ... FOR UPDATE`) untuk mencegah duplikasi.
-- Nomor **hanya** diambil saat surat disimpan, bukan saat pratinjau.
-- **Surat lama tidak mempengaruhi counter** — nomor diisi manual.
-
 ### Generate PDF
 
-Menggunakan **Puppeteer** (Chromium headless). Browser instance diluncurkan sekali dan di-cache untuk efisiensi.
+Jika Puppeteer error `Chromium not found`:
 
-Kalau ada error Chromium, jalankan:
 ```bash
 npx puppeteer browsers install chrome
 ```
+
+### Struktur Response API
+
+**Sukses:**
+```json
+{
+  "success": true,
+  "message": "Berhasil",
+  "data": { ... },
+  "meta": { "page": 1, "limit": 10, "total": 134 }
+}
+```
+
+**Gagal:**
+```json
+{
+  "success": false,
+  "message": "Validasi gagal",
+  "errors": [
+    { "field": "nomor_surat", "message": "Nomor surat wajib diisi" }
+  ]
+}
+```
+
+### Kode Status HTTP
+
+| Kode | Arti |
+|------|------|
+| 200 | Sukses |
+| 201 | Resource dibuat |
+| 400 / 422 | Validasi gagal |
+| 401 | Token tidak ada / expired |
+| 403 | Role tidak berhak |
+| 404 | Tidak ditemukan |
+| 409 | Konflik (duplikat, nomor ganda, balasan ganda) |
+| 413 | File melebihi 10 MB |
+| 500 | Error server |
+
+---
+
+## 🔗 Link Penting
+
+- **Repository Backend**: [github.com/GinaQurrotaAeny29/backend_sistem_persuratan](https://github.com/GinaQurrotaAeny29/backend_sistem_persuratan)
+- **Kontrak API**: Lihat file `docs/Kontrak_API_SI_Persuratan.md`
+- **Figma Prototype**: 38 layar UI/UX
 
 ---
 
 ## 📞 Kontak
 
-Jika ada pertanyaan atau kendala terkait backend, hubungi tim backend.
+Untuk pertanyaan atau kendala terkait backend, hubungi:
+
+- **Nama Anngota 1**: Gina Qurrota Aeny (2306029)
+- **Nama Anngota 2**: Aisha Kamil Agustina (2306015)
+- **Program Studi**: Teknik Informatika
+- **Kampus**: Institut Teknologi Garut
+- **Email**: 2306029@itg.ac.id | 2306015@itg.ac.id
+- **GitHub**: [@GinaQurrotaAeny29](https://github.com/GinaQurrotaAeny29)
 
 ---
+
+## 📄 Lisensi
+
+Proyek ini dibuat untuk keperluan **Kerja Praktik** di PT Metanouva Informatika.
 
 **© 2026 PT Metanouva Informatika — Kerja Praktik**
 ```
-
----
-
-## 📌 Yang Baru di README Ini
-
-| Perubahan | Keterangan |
-|-----------|------------|
-| **Daftar Isi** | Tambah "Dua Jenis Input Surat Keluar" & "Dokumentasi Hasil" |
-| **Struktur Folder** | Tambah `docs/` |
-| **Endpoint Surat Keluar** | Tambah keterangan filter `?jenis_input=` & disposisi di detail |
-| **Section "Dua Jenis Input Surat Keluar"** | Section baru — penjelasan lengkap surat baru vs lama |
-| **Section "Dokumentasi Hasil"** | Section baru — screenshot PDF, contoh response, format penomoran, alur lengkap |
-| **Catatan Penomoran** | Tambah: surat lama tidak mempengaruhi counter |
-
----
-
-## 📤 Setelah Update
-
-1. Simpan file `README.md`.
-2. Commit & push:
-   ```bash
-   git add README.md
-   git commit -m "Update: README dengan fitur dua jenis surat keluar + dokumentasi hasil"
-   git push
-   ```
-
----
